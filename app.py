@@ -5,20 +5,20 @@ from openai import OpenAI
 
 st.set_page_config(page_title="Прогноз следующего пробного ЕНТ", layout="centered")
 
-# загрузка модели
 model = joblib.load("best_model.pkl")
 model_columns = joblib.load("model_columns.pkl")
 
-# OpenAI client для Streamlit Cloud
-api_key = st.secrets.get("OPENAI_API_KEY")
 
-if api_key:
-    client = OpenAI(api_key=api_key)
-else:
-    client = None
+def get_openai_client():
+    try:
+        api_key = st.secrets["OPENAI_API_KEY"]
+        if not api_key:
+            return None
+        return OpenAI(api_key=api_key.strip())
+    except Exception:
+        return None
 
 
-# функция определения уровня риска
 def risk_level(score):
     if score < 70:
         return "Высокий риск"
@@ -28,7 +28,6 @@ def risk_level(score):
         return "Низкий риск"
 
 
-# функция анализа проблемных зон
 def detect_issues(student_row):
     issues = []
 
@@ -49,52 +48,35 @@ def detect_issues(student_row):
     return issues
 
 
-# базовые рекомендации системы
 def generate_recommendations(issues, prediction):
     recommendations = []
 
     if "Критически низкий уровень сна" in issues:
-        recommendations.append(
-            "Необходимо срочно нормализовать режим сна: желательно спать не менее 7–8 часов в сутки."
-        )
+        recommendations.append("Необходимо срочно нормализовать режим сна: желательно спать не менее 7–8 часов в сутки.")
     elif "Недостаток сна" in issues:
-        recommendations.append(
-            "Рекомендуется увеличить продолжительность сна, так как недосып снижает концентрацию и продуктивность."
-        )
+        recommendations.append("Рекомендуется увеличить продолжительность сна, так как недосып снижает концентрацию и продуктивность.")
 
     if "Низкий интерес к учебе" in issues:
-        recommendations.append(
-            "Стоит повысить учебную мотивацию: поставить конкретные цели по баллам ЕНТ и разбить подготовку на небольшие этапы."
-        )
+        recommendations.append("Стоит повысить учебную мотивацию: поставить конкретные цели по баллам ЕНТ и разбить подготовку на небольшие этапы.")
 
     if "Слабая академическая база" in issues:
-        recommendations.append(
-            "Рекомендуется начать с укрепления базовых тем и регулярно решать типовые задания по формату ЕНТ."
-        )
+        recommendations.append("Рекомендуется начать с укрепления базовых тем и регулярно решать типовые задания по формату ЕНТ.")
 
     if prediction < 70:
-        recommendations.append(
-            "Прогноз находится в зоне высокого риска, поэтому важно выстроить регулярный график подготовки и уделять внимание слабым темам."
-        )
+        recommendations.append("Прогноз находится в зоне высокого риска, поэтому важно выстроить регулярный график подготовки и уделять внимание слабым темам.")
     elif prediction < 100:
-        recommendations.append(
-            "Результат находится на среднем уровне, поэтому важно усилить практику и системность подготовки."
-        )
+        recommendations.append("Результат находится на среднем уровне, поэтому важно усилить практику и системность подготовки.")
     else:
-        recommendations.append(
-            "Прогноз хороший, рекомендуется сохранить текущий темп подготовки и регулярно повторять изученный материал."
-        )
+        recommendations.append("Прогноз хороший, рекомендуется сохранить текущий темп подготовки и регулярно повторять изученный материал.")
 
     if not recommendations:
-        recommendations.append(
-            "Выраженных проблем не обнаружено. Рекомендуется продолжать подготовку в стабильном режиме."
-        )
+        recommendations.append("Выраженных проблем не обнаружено. Рекомендуется продолжать подготовку в стабильном режиме.")
 
     return recommendations
 
 
-# функция генерации ИИ-рекомендации
 def get_ai_recommendation(prediction, risk, issues, recommendations):
+    client = get_openai_client()
     if client is None:
         return "ИИ-рекомендации временно недоступны: API ключ не задан в настройках приложения."
 
@@ -132,7 +114,6 @@ def get_ai_recommendation(prediction, risk, issues, recommendations):
         return "ИИ-рекомендации временно недоступны из-за ограничений API или технической ошибки. Используйте базовые рекомендации системы."
 
 
-# интерфейс
 st.title("Прогноз следующего пробного ЕНТ")
 st.write(
     "Система предназначена для предварительной оценки результата следующего пробного ЕНТ "
