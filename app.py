@@ -17,18 +17,17 @@ def get_openai_client():
     api_key = st.secrets.get("OPENAI_API_KEY", "")
 
     if not isinstance(api_key, str):
-        return None, False, 0
+        return None
 
     api_key = api_key.strip()
 
     if api_key == "":
-        return None, False, 0
+        return None
 
     try:
-        client = OpenAI(api_key=api_key)
-        return client, True, len(api_key)
+        OpenAI(api_key=api_key)
     except Exception:
-        return None, True, len(api_key)
+        return None
 
 
 def risk_level(score):
@@ -108,15 +107,13 @@ def generate_recommendations(issues, prediction):
 
 
 def get_ai_recommendation(prediction, risk, issues, recommendations):
-    client, key_found, key_length = get_openai_client()
+    client = get_openai_client()
+
+    if client is None:
+        return "ИИ-рекомендации временно недоступны: API ключ не найден или не загрузился."
 
     issues_text = "\n".join([f"- {item}" for item in issues]) if issues else "- Явных проблемных зон не обнаружено"
     recs_text = "\n".join([f"- {item}" for item in recommendations])
-
-    if client is None:
-        if key_found:
-            return f"Ошибка OpenAI: ключ найден, длина = {key_length}, но клиент не создался."
-        return "Ошибка OpenAI: ключ не найден в Streamlit Secrets."
 
     prompt = f"""
 Ты — образовательный AI-консультант.
@@ -140,86 +137,20 @@ def get_ai_recommendation(prediction, risk, issues, recommendations):
 """
 
     try:
-        response = client.responses.create(
+        response = client.chat.completions.create(
             model="gpt-4.1-mini",
-            input=prompt
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Ты образовательный AI-консультант. Пиши кратко, ясно и доброжелательно на русском языке."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0.7
         )
-        return response.output_text
+        return response.choices[0].message.content
     except Exception as e:
         return f"Ошибка OpenAI: {str(e)}"
-
-
-# загрузка модели
-try:
-    model, model_columns = load_model()
-except Exception as e:
-    st.error("Не удалось загрузить модель.")
-    st.code(str(e))
-    st.stop()
-
-
-st.title("Прогноз следующего пробного ЕНТ")
-st.write(
-    "Система предназначена для предварительной оценки результата следующего пробного ЕНТ "
-    "на основе социально-академических факторов."
-)
-
-# временная диагностика ключа
-_, key_found, key_length = get_openai_client()
-st.caption(f"Ключ найден: {key_found}")
-st.caption(f"Длина ключа: {key_length}")
-
-age = st.number_input("Возраст", min_value=10, max_value=25, value=17)
-sleep = st.number_input("Часы сна", min_value=0.0, max_value=12.0, value=6.0, step=0.5)
-interest = st.slider("Интерес к учебе", min_value=1, max_value=5, value=3)
-trial = st.number_input("Текущий пробный ЕНТ", min_value=0.0, max_value=140.0, value=60.0, step=1.0)
-
-if st.button("Рассчитать прогноз"):
-    try:
-        row = {col: 0 for col in model_columns}
-
-        if "2. Возраст" in row:
-            row["2. Возраст"] = age
-        if "10. Среднее количество часов сна в сутки" in row:
-            row["10. Среднее количество часов сна в сутки"] = sleep
-        if "17. Насколько вам интересна учеба? 1 - совсем не интересна 5 - очень интересна" in row:
-            row["17. Насколько вам интересна учеба? 1 - совсем не интересна 5 - очень интересна"] = interest
-        if "41. Результат предыдущего пробного ЕНТ (ЕНТ который вы сдавали до последнего)" in row:
-            row["41. Результат предыдущего пробного ЕНТ (ЕНТ который вы сдавали до последнего)"] = trial
-
-        df = pd.DataFrame([row])[model_columns]
-
-        prediction = round(float(model.predict(df)[0]), 2)
-        risk = risk_level(prediction)
-        issues = detect_issues(df.iloc[0])
-        recommendations = generate_recommendations(issues, prediction)
-
-        st.subheader("Результат")
-        st.write(f"**Прогнозируемый балл:** {prediction}")
-
-        if risk == "Высокий риск":
-            st.error(f"Уровень риска: {risk}")
-        elif risk == "Средний риск":
-            st.warning(f"Уровень риска: {risk}")
-        else:
-            st.success(f"Уровень риска: {risk}")
-
-        st.subheader("Проблемные зоны")
-        if issues:
-            for issue in issues:
-                st.write(f"- {issue}")
-        else:
-            st.write("Явных проблемных зон не обнаружено.")
-
-        st.subheader("Рекомендации")
-        for rec in recommendations:
-            st.write(f"- {rec}")
-
-        st.subheader("ИИ-рекомендации")
-        with st.spinner("Генерируется персонализированная рекомендация..."):
-            ai_text = get_ai_recommendation(prediction, risk, issues, recommendations)
-        st.write(ai_text)
-
-    except Exception as e:
-        st.error("Ошибка при расчёте прогноза.")
-        st.code(str(e))
