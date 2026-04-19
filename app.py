@@ -1,4 +1,3 @@
-import os
 import streamlit as st
 import pandas as pd
 import joblib
@@ -10,9 +9,13 @@ st.set_page_config(page_title="Прогноз следующего пробно�
 model = joblib.load("best_model.pkl")
 model_columns = joblib.load("model_columns.pkl")
 
-# OpenAI client
-api_key = os.environ.get("OPENAI_API_KEY")
-client = OpenAI(api_key=api_key) if api_key else None
+# OpenAI client для Streamlit Cloud
+api_key = st.secrets.get("OPENAI_API_KEY")
+
+if api_key:
+    client = OpenAI(api_key=api_key)
+else:
+    client = None
 
 
 # функция определения уровня риска
@@ -93,7 +96,7 @@ def generate_recommendations(issues, prediction):
 # функция генерации ИИ-рекомендации
 def get_ai_recommendation(prediction, risk, issues, recommendations):
     if client is None:
-        return "OpenAI API key не найден. Сначала задай переменную окружения OPENAI_API_KEY в терминале."
+        return "ИИ-рекомендации временно недоступны: API ключ не задан в настройках приложения."
 
     issues_text = "\n".join([f"- {item}" for item in issues]) if issues else "- Явных проблемных зон не обнаружено"
     recs_text = "\n".join([f"- {item}" for item in recommendations])
@@ -119,12 +122,14 @@ def get_ai_recommendation(prediction, risk, issues, recommendations):
 4. Ответ сделай в 1–2 абзацах без лишней воды.
 """
 
-    response = client.responses.create(
-        model="gpt-5.2",
-        input=prompt
-    )
-
-    return response.output_text
+    try:
+        response = client.responses.create(
+            model="gpt-5.2",
+            input=prompt
+        )
+        return response.output_text
+    except Exception:
+        return "ИИ-рекомендации временно недоступны из-за ограничений API или технической ошибки. Используйте базовые рекомендации системы."
 
 
 # интерфейс
