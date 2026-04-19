@@ -4,7 +4,7 @@ import numpy as np
 import joblib
 from openai import OpenAI
 
-st.set_page_config(page_title="Прогноз следующего пробного ЕНТ", layout="wide")
+st.set_page_config(page_title="Прогноз ЕНТ", layout="wide")
 
 
 @st.cache_resource
