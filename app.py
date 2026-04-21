@@ -538,7 +538,7 @@ if submitted:
         ai_text = get_ai_recommendation(prediction, risk, issues, recommendations)
 
         st.subheader("Результат")
-        st.write(f"**Прогнозируемый балл следующего пробного ЕНТ:** {prediction}")
+        st.write(f"**Прогнозируемый балл ЕНТ:** {prediction}")
 
         if risk == "Высокий риск":
             st.error(f"Уровень риска: {risk}")
