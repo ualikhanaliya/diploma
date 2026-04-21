@@ -531,6 +531,12 @@ if submitted:
 
     try:
         student_df = build_student_df(user_input, model_columns)
+        st.subheader("Отладка: данные, которые уходят в модель")
+        st.dataframe(student_df.T)
+        filled = student_df.notna().sum(axis=1).iloc[0]
+        st.write("Количество заполненных признаков:", filled)
+        empty_cols = student_df.columns[student_df.iloc[0].isna()].tolist()
+        st.write("Пустые признаки:", empty_cols)
         prediction = round(float(model.predict(student_df)[0]), 2)
         risk = risk_level(prediction)
         issues = detect_issues_full(student_df.iloc[0])
